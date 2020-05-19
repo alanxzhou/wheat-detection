@@ -1,0 +1,6 @@
+matplotlib
+open-cv
+pandas
+numpy
+scipy
+albumentations
