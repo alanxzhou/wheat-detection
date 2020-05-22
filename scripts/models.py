@@ -107,9 +107,7 @@ class WheatModel:
             collate_fn=collate_fn
         )
 
-        if not self.val_dataset:
-            self.valid_data_loader = None
-        else:
+        if self.val_dataset:
             self.valid_data_loader = DataLoader(
                 self.val_dataset,
                 batch_size=val_batch_size,
