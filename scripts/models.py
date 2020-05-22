@@ -1,6 +1,7 @@
 import albumentations as A
 import math
 import numpy as np
+import os
 import pandas as pd
 import torch
 import torchvision
@@ -10,16 +11,16 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-from scripts.utils import Averager, plot_grad_flow, WheatDataset
+from utils import Averager, plot_grad_flow, WheatDataset
 
 
-class model_container:
+class WheatModel:
 
-    def __init__(self, data, train_path, num_epochs=5, train_val_split=0.8, model_name='faster_rcnn', optimizer=None, lr_scheduler=None, transforms=None):
+    def __init__(self, base_path, num_epochs=5, train_val_split=0.8, model_name='faster_rcnn', optimizer=None, lr_scheduler=None, transforms=None, weights_file=None):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.train_path = train_path
+        self.base_path = base_path
+        self.train_path = os.path.join(base_path, 'train')
         self.num_epochs = num_epochs
-        self.dataset = data
         self.train_df = None
         self.val_df = None
         self.train_dataset = None
@@ -31,7 +32,7 @@ class model_container:
         self.valid_data_loader = None
         self.set_dataloader()
         self.num_classes = 2
-        self.model_name = None
+        self.model_name = model_name
         self.model = None
         self.select_model(model_name)  # selects model name and model
         self.model.to(self.device)
@@ -39,9 +40,11 @@ class model_container:
         self.optimizer = torch.optim.SGD(self.params, lr=0.005, momentum=0.9, weight_decay=0.0005) \
             if optimizer is None else optimizer
         self.lr_scheduler = lr_scheduler
+        if weights_file:
+            self.load_weights(weights_file)
 
     def load_data(self):
-        train_df = pd.read_csv(self.train_path)
+        train_df = pd.read_csv(os.path.join(self.base_path, 'train.csv'))
         train_df['x'] = -1
         train_df['y'] = -1
         train_df['w'] = -1
@@ -83,6 +86,7 @@ class model_container:
             weights_model_name = 'maskrcnn'
         else:
             raise ValueError('Not a valid model name')
+        self.model = model
 
     def get_train_transform(self):
         transforms = [] if self.transforms is None else self.transforms
@@ -110,6 +114,12 @@ class model_container:
             num_workers=num_workers,
             collate_fn=collate_fn
         )
+
+    def get_full_dataset(self):
+        return pd.concat([self.train_df, self.val_df])
+
+    def load_weights(self, weights_file):
+        self.model.load_state_dict(torch.load(weights_file))
 
     def main(self):
         loss_hist = Averager()
@@ -150,9 +160,12 @@ class model_container:
                 self.lr_scheduler.step()
 
             print(f"Epoch #{epoch} loss: {loss_hist.value}")
-        plot_grad_flow(self.model.named_parameters())
         return loss
 
+    def save_params(self, save_name=None):
+        if not save_name:
+            save_name = f'{self.model_name}_resnet50_fpn_{self.num_epochs}epochs.pth'
+        torch.save(self.model.state_dict(), save_name)
 
 def collate_fn(batch):
     return tuple(zip(*batch))
