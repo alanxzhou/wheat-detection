@@ -98,7 +98,7 @@ class WheatModel:
             ToTensor()
         ], bbox_params={'format': 'pascal_voc', 'label_fields': ['labels']})
 
-    def set_dataloader(self, train_batch_size=4, val_batch_size=4, shuffle=False, num_workers=0):
+    def set_dataloader(self, train_batch_size=4, val_batch_size=4, shuffle=True, num_workers=0):
         self.train_data_loader = DataLoader(
             self.train_dataset,
             batch_size=train_batch_size,
@@ -107,13 +107,16 @@ class WheatModel:
             collate_fn=collate_fn
         )
 
-        self.valid_data_loader = DataLoader(
-            self.val_dataset,
-            batch_size=val_batch_size,
-            shuffle=shuffle,
-            num_workers=num_workers,
-            collate_fn=collate_fn
-        )
+        if not self.val_dataset:
+            self.valid_data_loader = None
+        else:
+            self.valid_data_loader = DataLoader(
+                self.val_dataset,
+                batch_size=val_batch_size,
+                shuffle=shuffle,
+                num_workers=num_workers,
+                collate_fn=collate_fn
+            )
 
     def get_full_dataset(self):
         return pd.concat([self.train_df, self.val_df])
@@ -166,6 +169,7 @@ class WheatModel:
         if not save_name:
             save_name = f'{self.model_name}_resnet50_fpn_{self.num_epochs}epochs.pth'
         torch.save(self.model.state_dict(), save_name)
+
 
 def collate_fn(batch):
     return tuple(zip(*batch))
