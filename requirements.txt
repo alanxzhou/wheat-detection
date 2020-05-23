@@ -6,3 +6,4 @@ scipy
 albumentations
 cython
 seaborn
+numba

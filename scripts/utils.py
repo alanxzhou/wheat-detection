@@ -115,7 +115,7 @@ def plot_grad_flow(named_parameters):
     ave_grads = []
     layers = []
     for n, p in named_parameters:
-        if(p.requires_grad) and ("bias" not in n):
+        if p.requires_grad and ("bias" not in n):
             layers.append(n)
             ave_grads.append(p.grad.abs().mean())
     plt.plot(ave_grads, alpha=0.3, color="b")

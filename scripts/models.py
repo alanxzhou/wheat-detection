@@ -125,6 +125,7 @@ class WheatModel:
     def main(self):
         loss_hist = Averager()
         loss = []
+        scores = []
         itr = 1
 
         for epoch in range(self.num_epochs):
