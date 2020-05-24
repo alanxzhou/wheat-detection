@@ -12,11 +12,12 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from utils import Averager, plot_grad_flow, WheatDataset
+from evaluation import calculate_image_precision
 
 
 class WheatModel:
 
-    def __init__(self, base_path, num_epochs=5, train_val_split=0.8, model_name='faster_rcnn', optimizer=None, lr_scheduler=None, transforms=None, weights_file=None):
+    def __init__(self, base_path, num_epochs=5, train_val_split=0.8, detection_threshold=0.5, model_name='faster_rcnn', optimizer=None, lr_scheduler=None, transforms=None, weights_file=None):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.base_path = base_path
         self.train_path = os.path.join(base_path, 'train')
@@ -26,6 +27,7 @@ class WheatModel:
         self.train_dataset = None
         self.val_dataset = None
         self.train_val_split = train_val_split
+        self.detection_threshold = detection_threshold
         self.transforms = transforms
         self.load_data()
         self.train_data_loader = None
@@ -74,7 +76,6 @@ class WheatModel:
 
             # replace the pre-trained head with a new one
             model.roi_heads.box_predictor = FastRCNNPredictor(in_features, self.num_classes)
-            weights_model_name = 'fasterrcnn'
         elif model_name == 'mask_rcnn':
             model = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
 
@@ -83,7 +84,6 @@ class WheatModel:
             dim_reduced = 2  # not sure what this should be yet
 
             model.roi_heads.box_predictor = MaskRCNNPredictor(in_features, dim_reduced, self.num_classes)
-            weights_model_name = 'maskrcnn'
         else:
             raise ValueError('Not a valid model name')
         self.model = model
@@ -122,13 +122,38 @@ class WheatModel:
     def load_weights(self, weights_file):
         self.model.load_state_dict(torch.load(weights_file))
 
+    def get_mean_precision(self):
+        precisions = []
+        self.model.eval()
+        for images, targets, image_ids in self.valid_data_loader:
+            images = list(image.to(self.device) for image in images)
+            outputs = self.model.forward(images)
+
+            for i, image in enumerate(images):
+                boxes = outputs[i]['boxes'].data.cpu().numpy()
+                scores = outputs[i]['scores'].data.cpu().numpy()
+
+                boxes = boxes[scores >= self.detection_threshold].astype(np.int32)
+                scores = scores[scores >= self.detection_threshold]
+                image_id = image_ids[i]
+
+                boxes[:, 2] = boxes[:, 2] - boxes[:, 0]
+                boxes[:, 3] = boxes[:, 3] - boxes[:, 1]
+
+                gt_boxes = self.val_df[self.val_df['image_id'] == image_id][['x', 'y', 'w', 'h']].values
+                image_precision = calculate_image_precision(gt_boxes, boxes)
+                precisions.append(image_precision)
+
+        return np.mean(precisions)
+
     def main(self):
         loss_hist = Averager()
         loss = []
-        scores = []
+        precisions = []
         itr = 1
 
         for epoch in range(self.num_epochs):
+            self.model.train()
             loss_hist.reset()
 
             for images, targets, image_ids in self.train_data_loader:
@@ -161,8 +186,11 @@ class WheatModel:
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
+            precision = self.get_mean_precision()
+            precisions.append(precision)
             print(f"Epoch #{epoch} loss: {loss_hist.value}")
-        return loss
+            print(f'Mean Precision for Validation Data: {precision}')
+        return loss, precisions
 
     def save_params(self, save_name=None):
         if not save_name:
