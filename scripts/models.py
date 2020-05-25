@@ -186,10 +186,11 @@ class WheatModel:
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
-            precision = self.get_mean_precision()
-            precisions.append(precision)
+            if self.val_dataset:
+                precision = self.get_mean_precision()
+                precisions.append(precision)
+                print(f'Mean Precision for Validation Data: {precision}')
             print(f"Epoch #{epoch} loss: {loss_hist.value}")
-            print(f'Mean Precision for Validation Data: {precision}')
         return loss, precisions
 
     def save_params(self, save_name=None):
