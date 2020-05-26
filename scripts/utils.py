@@ -60,7 +60,8 @@ class WheatDataset(Dataset):
             sample = self.transforms(**sample)
             image = sample['image']
 
-            target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
+            # target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
+            target['boxes'] = torch.as_tensor(sample['bboxes'])
 
         return image, target, image_id
 
