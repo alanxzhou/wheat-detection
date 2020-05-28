@@ -11,8 +11,9 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-from utils import Averager, plot_grad_flow, WheatDataset
 from evaluation import calculate_image_precision
+from data_loading import WheatDataset, WheatDatasetTest
+from utils import Averager, plot_grad_flow
 
 
 class WheatModel:
@@ -64,7 +65,7 @@ class WheatModel:
         self.train_df = train_df
         self.val_df = valid_df
         self.train_dataset = WheatDataset(train_df, self.train_path, self.get_train_transform())
-        self.val_dataset = WheatDataset(valid_df, self.train_path, self.get_valid_transform())
+        self.val_dataset = WheatDatasetTest(valid_df, self.train_path, self.get_valid_transform())
 
     def select_model(self, model_name):
         self.model_name = model_name
@@ -156,7 +157,7 @@ class WheatModel:
             self.model.train()
             loss_hist.reset()
 
-            for images, targets, image_ids in self.train_data_loader:
+            for images, targets in self.train_data_loader:
 
                 images = list(image.to(self.device) for image in images)
                 #         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -204,4 +205,11 @@ def collate_fn(batch):
 
 
 if __name__ == '__main__':
-    None
+    base_path = os.path.join('..', 'data')
+    model = WheatModel(
+        base_path=base_path,
+        num_epochs=1,
+        train_val_split=0.8,
+        transforms=[]
+    )
+    loss, precisions = model.main()
