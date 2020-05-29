@@ -123,12 +123,16 @@ class WheatModel:
     def load_weights(self, weights_file):
         self.model.load_state_dict(torch.load(weights_file))
 
-    def get_mean_precision(self):
+    def validate(self):
+        loss = []
         precisions = []
         self.model.eval()
         for images, targets, image_ids in self.valid_data_loader:
             images = list(image.to(self.device) for image in images)
             outputs = self.model.forward(images)
+            loss_dict = self.model(images, targets)
+            losses = sum(loss for loss in loss_dict.values())
+            loss_value = losses.item()
 
             for i, image in enumerate(images):
                 boxes = outputs[i]['boxes'].data.cpu().numpy()
@@ -145,11 +149,13 @@ class WheatModel:
                 image_precision = calculate_image_precision(gt_boxes, boxes)
                 precisions.append(image_precision)
 
-        return np.mean(precisions)
+        return np.mean(precisions), loss_value
 
     def main(self):
+        print('Starting Training...')
         loss_hist = Averager()
         loss = []
+        validation_losses = []
         precisions = []
         itr = 1
 
@@ -188,9 +194,11 @@ class WheatModel:
                 self.lr_scheduler.step()
 
             if self.val_dataset:
-                precision = self.get_mean_precision()
+                precision, validation_loss = self.validate()
                 precisions.append(precision)
+                validation_losses.append(validation_loss)
                 print(f'Mean Precision for Validation Data: {precision}')
+                print(f'Validation Loss: {validation_loss}')
             print(f"Epoch #{epoch} loss: {loss_hist.value}")
         return loss, precisions
 

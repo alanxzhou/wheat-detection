@@ -87,16 +87,17 @@ class WheatDataset(Dataset):
         target = dict()
         target['boxes'] = torch.from_numpy(labels[:, 1:].astype(np.float32))
         target['labels'] = torch.ones((labels[:, 0].shape[0],), dtype=torch.int64)
+        # target['boxes'] = labels[:, 1:].astype(np.float32)
 
-        if self.transforms:
-            sample = {
-                'image': img,
-                'bboxes': target['boxes'],
-                'labels': target['labels']
-            }
-            sample = self.transforms(**sample)
-            img = sample['image']
-            target['boxes'] = torch.as_tensor(sample['bboxes'])
+        # if self.transforms:
+        #     sample = {
+        #         'image': img,
+        #         'bboxes': target['boxes'],
+        #         'labels': target['labels']
+        #     }
+        #     sample = self.transforms(**sample)
+        #     img = sample['image']
+        #     target['boxes'] = torch.as_tensor(sample['bboxes'])
 
         return img, target
 
