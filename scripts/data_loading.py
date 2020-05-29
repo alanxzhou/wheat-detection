@@ -11,7 +11,7 @@ from transforms import load_mosaic, load_image, letterbox, augment_hsv, random_a
 
 class WheatDataset(Dataset):
 
-    def __init__(self, dataframe, image_dir, transforms=None):
+    def __init__(self, dataframe, image_dir, transforms=None, mosaic=True, augment=True):
         super().__init__()
 
         self.df = dataframe
@@ -37,8 +37,8 @@ class WheatDataset(Dataset):
         self.image_dir = image_dir
         self.transforms = transforms
 
-        self.mosaic = False
-        self.augment = True
+        self.mosaic = mosaic
+        self.augment = augment
 
     def __getitem__(self, index: int):
 
@@ -84,11 +84,21 @@ class WheatDataset(Dataset):
             augment_hsv(img, hgain=0.0138, sgain=0.678, vgain=0.36)
 
         img = torch.from_numpy(torch.from_numpy(img).permute(2, 0, 1).numpy().astype(np.float32) / 255.0)
-        d = dict()
-        d['boxes'] = torch.from_numpy(labels[:, 1:].astype(np.float32))
-        d['labels'] = torch.ones((labels[:, 0].shape[0],), dtype=torch.int64)
+        target = dict()
+        target['boxes'] = torch.from_numpy(labels[:, 1:].astype(np.float32))
+        target['labels'] = torch.ones((labels[:, 0].shape[0],), dtype=torch.int64)
 
-        return img, d
+        if self.transforms:
+            sample = {
+                'image': img,
+                'bboxes': target['boxes'],
+                'labels': target['labels']
+            }
+            sample = self.transforms(**sample)
+            img = sample['image']
+            target['boxes'] = torch.as_tensor(sample['bboxes'])
+
+        return img, target
 
     def __len__(self) -> int:
         return self.image_ids.shape[0]
@@ -126,7 +136,7 @@ class WheatDatasetTest(Dataset):
         # suppose all instances are not crowd
         iscrowd = torch.zeros((records.shape[0],), dtype=torch.int64)
 
-        target = {}
+        target = dict()
         target['boxes'] = boxes
         target['labels'] = labels
         # target['masks'] = None
