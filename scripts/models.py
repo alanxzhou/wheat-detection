@@ -124,11 +124,11 @@ class WheatModel:
         self.model.load_state_dict(torch.load(weights_file))
 
     def validate(self):
-        loss = []
         precisions = []
         self.model.eval()
         for images, targets, image_ids in self.valid_data_loader:
             images = list(image.to(self.device) for image in images)
+            targets = [{k: v.long().to(self.device) for k, v in t.items()} for t in targets]
             outputs = self.model.forward(images)
             loss_dict = self.model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
@@ -172,6 +172,7 @@ class WheatModel:
                 loss_dict = self.model(images, targets)
 
                 losses = sum(loss for loss in loss_dict.values())
+                self.validate()
                 loss_value = losses.item()
 
                 loss_hist.send(loss_value)
@@ -200,7 +201,8 @@ class WheatModel:
                 print(f'Mean Precision for Validation Data: {precision}')
                 print(f'Validation Loss: {validation_loss}')
             print(f"Epoch #{epoch} loss: {loss_hist.value}")
-        return loss, precisions
+        print('Finished!')
+        return loss, precisions, validation_losses
 
     def save_params(self, save_name=None):
         if not save_name:
@@ -220,4 +222,4 @@ if __name__ == '__main__':
         train_val_split=0.8,
         transforms=[]
     )
-    loss, precisions = model.main()
+    loss, precisions, validation_losses = model.main()
