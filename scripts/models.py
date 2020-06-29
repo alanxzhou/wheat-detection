@@ -18,7 +18,8 @@ from utils import Averager, plot_grad_flow
 
 class WheatModel:
 
-    def __init__(self, base_path, num_epochs=5, train_val_split=0.8, detection_threshold=0.5, model_name='faster_rcnn', optimizer=None, lr_scheduler=None, transforms=None, weights_file=None):
+    def __init__(self, base_path, num_epochs=5, train_val_split=0.8, detection_threshold=0.5, model_name='faster_rcnn',
+                 optimizer=None, lr_scheduler=None, transforms=None, weights_file=None):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.base_path = base_path
         self.train_path = os.path.join(base_path, 'train')
